@@ -1,0 +1,31 @@
+version: '3.9'
+
+services:
+  arangodb:
+    image: arangodb:latest
+    container_name: arangodb
+    ports:
+      - "8529:8529"
+    environment:
+      - ARANGO_ROOT_PASSWORD=my_password
+    volumes:
+      - arangodb_data:/var/lib/arangodb3
+      - arangodb_apps:/var/lib/arangodb3-apps
+
+  app:
+    build:
+      context: .
+    container_name: temporal_graph_app
+    ports:
+      - "5000:5000"
+    environment:
+      - DB_HOST=arangodb
+      - DB_NAME=TemporalGraphDB
+      - DB_USER=root
+      - DB_PASSWORD=root_password
+    depends_on:
+      - arangodb
+
+volumes:
+  arangodb_data:
+  arangodb_apps:
