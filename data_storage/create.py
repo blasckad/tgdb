@@ -107,12 +107,12 @@ def write_edge(from_name: str, to_name: str, start_ts: int, end_ts: int, data: d
 
 # ========== Пример использования ==========
 if __name__ == "__main__":
-    write_node("Alice", 1700000000, 1708000000, {"age": 25})
-    write_node("Alice", 1708000001, 1710000000, {"age": 26})
-    write_node("Bob", 1700000000, 1710000000, {"age": 30})
-
-    write_edge("Alice", "Bob", 1701000000, 1709000000, {"type": "friend"})
-    write_edge("Bob", "Alice", 1702000000, 1708000000, {"type": "reply"})
-
-    save_all_indexes()
+    # write_node("Alice", 1700000000, 1708000000, {"age": 25})
+    # write_node("Alice", 1708000001, 1710000000, {"age": 26})
+    # write_node("Bob", 1700000000, 1710000000, {"age": 30})
+    #
+    # write_edge("Alice", "Bob", 1701000000, 1709000000, {"type": "friend"})
+    # write_edge("Bob", "Alice", 1702000000, 1708000000, {"type": "reply"})
+    #
+    # save_all_indexes()
     print("✅ Узлы и рёбра записаны с индексами.")

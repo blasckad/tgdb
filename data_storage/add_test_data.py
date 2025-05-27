@@ -1,63 +1,62 @@
-import pandas as pd
-import time
-from datetime import datetime, timedelta
+import os
 from create import write_node, write_edge, save_all_indexes
 
-# Путь к распакованным CSV
-DATA_DIR = "..\data"
+# Пути к файлам
+ACTIONS_PATH = "../data/mooc_actions.tsv"
+FEATURES_PATH = "../data/mooc_action_features.tsv"
+LABELS_PATH = "../data/mooc_action_labels.tsv"
 
+# ========== Загрузка данных ==========
 
-def load_instacart_data():
-    orders = pd.read_csv(f"{DATA_DIR}/orders.csv")
-    products = pd.read_csv(f"{DATA_DIR}/products.csv")
-    prior = pd.read_csv(f"{DATA_DIR}/order_products__prior.csv")
+# 1. Читаем метки
+labels = {}
+with open(LABELS_PATH, "r") as f:
+    next(f)  # пропустить заголовок
+    for line in f:
+        action_id, label = line.strip().split()
+        labels[action_id] = int(label)
 
-    return orders, products, prior
+# 2. Читаем признаки
+features = {}
+with open(FEATURES_PATH, "r") as f:
+    next(f)
+    for line in f:
+        parts = line.strip().split()
+        action_id = parts[0]
+        feats = list(map(float, parts[1:]))
+        features[action_id] = feats
 
+# 3. Читаем действия и записываем в TGDB
+LIMIT = 500_000  # можно увеличить
 
-def simulate_unix_timestamp(start_date: datetime, days_offset: float, hour: int):
-    dt = start_date + timedelta(days=days_offset, hours=hour)
-    return int(dt.timestamp())
+with open(ACTIONS_PATH, "r") as f:
+    next(f)
+    for i, line in enumerate(f):
+        if i >= LIMIT:
+            break
 
+        action_id, user_id, target_id, ts = line.strip().split()
+        timestamp = int(float(ts))
+        user = f"user_{user_id}"
+        target = f"item_{target_id}"
+        start = timestamp
+        end = start + 60  # минута как длительность действия
 
-def process_instacart_to_tgdb():
-    orders, products, prior = load_instacart_data()
+        # Признаки и метки
+        feats = features.get(action_id, [])
+        label = labels.get(action_id, 0)
 
-    merged = prior.merge(orders, on='order_id', how='left')
-    merged = merged.merge(products, on='product_id', how='left')
+        edge_data = {
+            "action_id": action_id,
+            "features": feats,
+            "label": label
+        }
 
-    print("Записей для обработки:", len(merged))
+        # Запись
+        write_node(user, start, end, {})
+        write_node(target, start, end, {})
+        write_edge(user, target, start, end, edge_data)
 
-    base_date = datetime(2015, 1, 1)  # фиктивная стартовая точка во времени
-    user_last_seen = {}
-
-    for _, row in merged.iterrows():
-        user_id = f"user_{row['user_id']}"
-        product_id = f"product_{row['product_id']}"
-        product_name = row['product_name']
-
-        # Считаем "дни с начала" как сумму всех days_since_prior_order
-        if row['user_id'] not in user_last_seen:
-            days_offset = 0
-        else:
-            days_offset = user_last_seen[row['user_id']] + (
-                row['days_since_prior_order'] if pd.notna(row['days_since_prior_order']) else 0)
-
-        user_last_seen[row['user_id']] = days_offset
-
-        timestamp = simulate_unix_timestamp(base_date, days_offset, row['order_hour_of_day'])
-
-        # Узлы
-        write_node(name=user_id, timestamp=timestamp, active=True, data={})
-        write_node(name=product_id, timestamp=timestamp, active=True, data={"product_name": product_name})
-
-        # Ребро покупки
-        write_edge(from_name=user_id, to_name=product_id, timestamp_start=timestamp, active=True,
-                   data={"action": "buy"})
-
-    save_all_indexes()
-    print("✅ Все данные Instacart записаны в TGDB")
-
-
-if __name__ == "__main__":
-    process_instacart_to_tgdb()
+# Финальное сохранение
+save_all_indexes()
+print("✅ ACT-MOOC записан в TGDB.")
